@@ -1,4 +1,22 @@
 
+## 0.22.0
+### @xmcl/runtime-api@0.6.0
+#### Features
+
+- added background video selection (#221) ([399ca13b5805a929e5ced21ea274e2933ec1c757](https://github.com/Voxelum/x-minecraft-launcher/commit/399ca13b5805a929e5ced21ea274e2933ec1c757))
+### @xmcl/keystone-ui@0.21.0
+#### Features
+
+- added background video selection (#221) ([399ca13b5805a929e5ced21ea274e2933ec1c757](https://github.com/Voxelum/x-minecraft-launcher/commit/399ca13b5805a929e5ced21ea274e2933ec1c757))
+#### Dependencies Updates
+
+- Dependency @xmcl/runtime-api bump **minor**
+### @xmcl/runtime@0.19.7
+#### Dependencies Updates
+
+- Dependency @xmcl/runtime-api bump **minor**
+
+
 ## 0.21.9
 ### @xmcl/runtime-api@0.5.3
 #### Bug Fixes
