@@ -1,9 +1,10 @@
-import { CreateInstanceOption, createTemplate, EditInstanceOptions, Instance, InstanceSchema, InstanceService as IInstanceService, InstanceServiceKey, InstancesSchema, InstanceState, LATEST_RELEASE, RuntimeVersions } from '@xmcl/runtime-api'
-import { ensureDir, remove } from 'fs-extra'
+import { Version } from '@xmcl/core'
+import { CreateInstanceOption, createTemplate, EditInstanceOptions, filterForgeVersion, filterOptifineVersion, Instance, InstanceSchema, InstanceService as IInstanceService, InstanceServiceKey, InstancesSchema, InstanceState, isFabricLoaderLibrary, isForgeLibrary, isOptifineLibrary, LATEST_RELEASE, RuntimeVersions } from '@xmcl/runtime-api'
+import { ensureDir, readdir, remove } from 'fs-extra'
 import { join, resolve } from 'path'
 import { v4 } from 'uuid'
 import LauncherApp from '../app/LauncherApp'
-import { copyPassively, exists, isDirectory, missing, readdirEnsured } from '../util/fs'
+import { exists, isDirectory, missing, readdirEnsured } from '../util/fs'
 import { assignShallow, requireObject, requireString } from '../util/object'
 import { createSafeFile, createSafeIO } from '../util/persistance'
 import InstallService from './InstallService'
@@ -55,7 +56,7 @@ export class InstanceService extends StatefulService<InstanceState> implements I
         const initial = this.app.getInitialInstance()
         if (initial) {
           try {
-            await this.linkInstance(initial)
+            await this.addExternalInstance(initial)
             await this.mountInstance(initial)
             await this.instancesFile.write({ instances: Object.keys(this.state.all), selectedInstance: initial })
           } catch (e) {
@@ -347,15 +348,12 @@ export class InstanceService extends StatefulService<InstanceState> implements I
     }
   }
 
-  /**
-   * Link a existed instance on you disk.
-   * @param path
-   */
-  async linkInstance(path: string) {
+  async addExternalInstance(path: string): Promise<boolean> {
     if (this.state.all[path]) {
       this.log(`Skip to link already managed instance ${path}`)
       return false
     }
+
     const loaded = await this.loadInstance(path)
     if (!loaded) {
       await this.createInstance({ path })
@@ -367,8 +365,48 @@ export class InstanceService extends StatefulService<InstanceState> implements I
     await this.worker().copyPassively([
       { src: resolve(path, 'libraries'), dest: this.getPath('libraries') },
       { src: resolve(path, 'assets'), dest: this.getPath('assets') },
-      { src: resolve(path, 'versions'), dest: this.getPath('versions') },
     ])
+
+    const versions = await readdir(resolve(path, 'versions')).catch(() => [])
+    let isVersionIsolated = false
+    await Promise.all(versions.map(async (v) => {
+      try {
+        // only resolve valid version
+        const version = await Version.parse(path, v)
+        const versionRoot = resolve(path, 'versions', v)
+        // const versionJson = resolve(versionRoot, `${v}.json`)
+        // const versionJar = resolve(versionRoot, `${v}.jar`)
+        // await Promise.all([
+        //   copyFile(versionJar, this.getPath('versions', v, `${v}.jar`)).catch(() => undefined),
+        //   copyFile(versionJson, this.getPath('versions', v, `${v}.json`)),
+        // ])
+        const files = (await readdir(versionRoot)).filter(f => f !== '.DS_Store' && f !== `${v}.json` && f !== `${v}.jar`)
+        if (files.some(f => f === 'saves' || f === 'mods' || f === 'options.txt' || f === 'config' || f === 'PCL')) {
+          // this is an version isolation
+          const minecraft = version.minecraftVersion
+          const forge = filterForgeVersion(version.libraries.find(isForgeLibrary)?.version ?? '')
+          const fabricLoader = version.libraries.find(isFabricLoaderLibrary)?.version ?? ''
+          const optifine = filterOptifineVersion(version.libraries.find(isOptifineLibrary)?.version ?? '')
+
+          const instance: Instance = {
+            path: versionRoot,
+          }
+
+          this.createInstance({
+            runtime: {
+              minecraft,
+              fabricLoader,
+              forge,
+              optifine,
+            },
+          })
+          for (const file of files) {
+          }
+        }
+      } catch (e) {
+        this.error(e)
+      }
+    }))
 
     return true
   }
