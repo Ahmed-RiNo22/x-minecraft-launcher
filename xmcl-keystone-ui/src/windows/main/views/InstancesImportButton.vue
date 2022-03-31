@@ -15,7 +15,7 @@
             fab
 
             small
-            @click="$emit('import', 'normal')"
+            @click="onImport('zip')"
             v-on="on"
           >
             <v-icon
@@ -29,7 +29,7 @@
         <v-btn
           fab
           small
-          @click="$emit('import', 'folder')"
+          @click="onImport('folder')"
         >
           <v-tooltip
             :close-delay="0"
@@ -42,14 +42,14 @@
                 folder
               </v-icon>
             </template>
-            {{ $t('profile.importFolder') }}
+            {{ t('profile.importFolder') }}
           </v-tooltip>
         </v-btn>
 
         <v-btn
           fab
           small
-          @click="$emit('import', 'curseforge')"
+          @click="onImport('curseforge')"
         >
           <v-tooltip
             :close-delay="0"
@@ -63,19 +63,53 @@
                 $vuetify.icons.curseforge
               </v-icon>
             </template>
-            {{ $t('profile.importCurseforge') }}
+            {{ t('profile.importCurseforge') }}
           </v-tooltip>
         </v-btn>
       </v-speed-dial>
     </template>
-    {{ $t('profile.importZip') }}
+    {{ t('profile.importZip') }}
   </v-tooltip>
 </template>
 
-<script lang=ts>
-export default defineComponent({
-  emits: ['import'],
-})
+<script lang=ts setup>
+import { ModpackServiceKey } from '@xmcl/runtime-api'
+import { useInstances } from '../composables/instance'
+import { useI18n, useResourceOperation, useService } from '/@/composables'
+
+const { importInstance } = useInstances()
+const { showOpenDialog } = windowController
+const { t } = useI18n()
+const { importResource } = useResourceOperation()
+const { importModpack } = useService(ModpackServiceKey)
+
+async function onImport(type: 'zip' | 'folder' | 'curseforge') {
+  const fromFolder = type === 'folder'
+  const filters = fromFolder
+    ? []
+    : [{ extensions: ['zip'], name: 'Zip' }]
+  const { filePaths } = await showOpenDialog({
+    title: t('profile.import.title'),
+    message: t('profile.import.description'),
+    filters,
+    properties: fromFolder ? ['openDirectory'] : ['openFile'],
+  })
+  if (filePaths && filePaths.length > 0) {
+    for (const f of filePaths) {
+      if (type === 'curseforge') {
+        await importResource({
+          path: f,
+          type: 'curseforge-modpack',
+          background: true,
+        })
+        await importModpack({ path: f, instanceConfig: {} })
+      } else {
+        await importInstance(f)
+      }
+    }
+  }
+}
+
 </script>
 
 <style>
