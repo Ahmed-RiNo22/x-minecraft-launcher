@@ -15,7 +15,7 @@
             fab
 
             small
-            @click="onImport('zip')"
+            @click="onImport('folder')"
             v-on="on"
           >
             <v-icon
@@ -29,7 +29,7 @@
         <v-btn
           fab
           small
-          @click="onImport('folder')"
+          @click="onImport('zip')"
         >
           <v-tooltip
             :close-delay="0"
@@ -39,51 +39,27 @@
               <v-icon
                 v-on="tooltip"
               >
-                folder
+                folder_zip
               </v-icon>
             </template>
-            {{ t('profile.importFolder') }}
-          </v-tooltip>
-        </v-btn>
-
-        <v-btn
-          fab
-          small
-          @click="onImport('curseforge')"
-        >
-          <v-tooltip
-            :close-delay="0"
-            left
-          >
-            <template #activator="{ on: tooltip }">
-              <v-icon
-                style="padding-right: 2px;"
-                v-on="tooltip"
-              >
-                $vuetify.icons.curseforge
-              </v-icon>
-            </template>
-            {{ t('profile.importCurseforge') }}
+            {{ t('profile.importZip') }}
           </v-tooltip>
         </v-btn>
       </v-speed-dial>
     </template>
-    {{ t('profile.importZip') }}
+    {{ t('profile.importFolder') }}
   </v-tooltip>
 </template>
 
 <script lang=ts setup>
-import { ModpackServiceKey } from '@xmcl/runtime-api'
-import { useInstances } from '../composables/instance'
-import { useI18n, useResourceOperation, useService } from '/@/composables'
+import { InstanceServiceKey } from '@xmcl/runtime-api'
+import { useI18n, useService } from '/@/composables'
 
-const { importInstance } = useInstances()
 const { showOpenDialog } = windowController
 const { t } = useI18n()
-const { importResource } = useResourceOperation()
-const { importModpack } = useService(ModpackServiceKey)
+const { addExternalInstance } = useService(InstanceServiceKey)
 
-async function onImport(type: 'zip' | 'folder' | 'curseforge') {
+async function onImport(type: 'zip' | 'folder') {
   const fromFolder = type === 'folder'
   const filters = fromFolder
     ? []
@@ -95,17 +71,11 @@ async function onImport(type: 'zip' | 'folder' | 'curseforge') {
     properties: fromFolder ? ['openDirectory'] : ['openFile'],
   })
   if (filePaths && filePaths.length > 0) {
-    for (const f of filePaths) {
-      if (type === 'curseforge') {
-        await importResource({
-          path: f,
-          type: 'curseforge-modpack',
-          background: true,
-        })
-        await importModpack({ path: f, instanceConfig: {} })
-      } else {
-        await importInstance(f)
-      }
+    const filePath = filePaths[0]
+    if (type === 'folder') {
+      addExternalInstance(filePath)
+    } else {
+      // await importInstance(f)
     }
   }
 }
